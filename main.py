@@ -5,11 +5,12 @@ import math
 from engine import *
 
 # --- Cấu hình Kích thước & Màu sắc ---
-BOARD_WIDTH = 640
+BOARD_WIDTH = 720  # Tăng độ rộng bàn cờ để ô vuông to ra
 UI_WIDTH = 220
 WIDTH = BOARD_WIDTH + UI_WIDTH
 HEIGHT = BOARD_WIDTH
-TILE = BOARD_WIDTH // 8
+TILE = BOARD_WIDTH // 8  # TILE lúc này sẽ là 90x90
+PIECE_SIZE = 80  # Ép cứng kích thước quân cờ giữ nguyên ở 80x80
 
 # Bảng màu cao cấp (Phong cách Modern Wood)
 COLOR_LIGHT = (238, 238, 210)
@@ -26,22 +27,24 @@ class AnimatedPiece(arcade.Sprite):
     def __init__(self, piece_name, base_path, r, c):
         path = os.path.join(base_path, "assets", f"{piece_name}.png")
         super().__init__(path)
-        self.width = TILE
-        self.height = TILE
+
+        # Cố định kích thước quân cờ (không dùng TILE nữa để tránh quân cờ bị to theo ô)
+        self.width = PIECE_SIZE
+        self.height = PIECE_SIZE
 
         # Lưu vị trí tọa độ lưới
         self.grid_r = r
         self.grid_c = c
 
-        # Lưu vị trí đích đến của quân cờ
+        # Lưu vị trí đích đến của quân cờ (Vẫn căn giữa theo kích thước TILE mới)
         self.target_x = c * TILE + TILE // 2
         self.target_y = (7 - r) * TILE + TILE // 2
 
         self.center_x = self.target_x
         self.center_y = self.target_y
 
-        self.easing_speed = 0.18  # Tỷ lệ trượt (càng nhỏ càng trượt êm)
-        self.current_scale = 1.0  # Biến số nguyên (float) để tính toán thay vì dùng self.scale của Arcade
+        self.easing_speed = 0.18
+        self.current_scale = 1.0
         self.target_scale = 1.0
 
     def update(self, delta_time: float = 0.0):
@@ -50,7 +53,6 @@ class AnimatedPiece(arcade.Sprite):
             self.center_x += (self.target_x - self.center_x) * self.easing_speed
             self.center_y += (self.target_y - self.center_y) * self.easing_speed
 
-            # Khóa vị trí nếu đã tới rất gần đích để chống rung
             if abs(self.target_x - self.center_x) < 0.5 and abs(self.target_y - self.center_y) < 0.5:
                 self.center_x = self.target_x
                 self.center_y = self.target_y
@@ -61,20 +63,20 @@ class AnimatedPiece(arcade.Sprite):
             if abs(self.target_scale - self.current_scale) < 0.01:
                 self.current_scale = self.target_scale
 
-            # Gán lại giá trị cho Sprite dưới dạng Tuple (chuẩn Arcade 3.x)
             self.scale = (self.current_scale, self.current_scale)
+
+
 class ChessGame(arcade.Window):
     def __init__(self):
         super().__init__(WIDTH, HEIGHT, "Chess AI - Premium Edition")
         self.base_path = os.path.dirname(__file__)
-        arcade.set_background_color((33, 35, 41))  # Nền UI xám tối sâu hơn
+        arcade.set_background_color((33, 35, 41))
 
         # --- UI Manager ---
         self.manager = arcade.gui.UIManager()
         self.manager.enable()
         self.v_box = arcade.gui.UIBoxLayout(space_between=15)
 
-        # Trải nghiệm nút bấm (Phong cách bo viền mượt)
         btn_style = {
             "normal": {
                 "font_name": ("calibri", "arial"),
@@ -89,7 +91,7 @@ class ChessGame(arcade.Window):
                 "font_size": 15,
                 "font_color": arcade.color.WHITE,
                 "border_width": 2,
-                "border_color": (118, 150, 86),  # Viền xanh lá khi hover
+                "border_color": (118, 150, 86),
                 "bg_color": (60, 64, 73),
             },
             "press": {
@@ -120,7 +122,7 @@ class ChessGame(arcade.Window):
         self.manager.add(anchor)
 
         self.piece_sprite_list = arcade.SpriteList()
-        self.time_elapsed = 0.0  # Dùng cho hiệu ứng nhấp nháy chữ
+        self.time_elapsed = 0.0
         self.reset_game()
 
     def reset_game(self):
@@ -186,16 +188,13 @@ class ChessGame(arcade.Window):
 
     def on_update(self, delta_time):
         self.time_elapsed += delta_time
-
-        # Cập nhật animation trượt
         self.piece_sprite_list.update()
 
-        # Cập nhật animation phóng to quân cờ đang chọn
         for sprite in self.piece_sprite_list:
             if self.selected and sprite.grid_r == self.selected[0] and sprite.grid_c == self.selected[1]:
-                sprite.target_scale = 1.15  # Phóng to 15%
+                sprite.target_scale = 1.15
             else:
-                sprite.target_scale = 1.0  # Thu về bình thường
+                sprite.target_scale = 1.0
 
     def on_draw(self):
         self.clear()
@@ -223,40 +222,56 @@ class ChessGame(arcade.Window):
         for _, _, r, c in self.valid_moves:
             cx, cy = c * TILE + TILE // 2, (7 - r) * TILE + TILE // 2
             if self.board[r][c] == "":
-                arcade.draw_circle_filled(cx, cy, 12, COLOR_HINT)
+                arcade.draw_circle_filled(cx, cy, 14, COLOR_HINT)
             else:
                 l, b = c * TILE, (7 - r) * TILE
                 arcade.draw_lrbt_rectangle_outline(l, l + TILE, b, b + TILE, COLOR_HINT, 6)
 
-        # 2.5 Vẽ tọa độ A-H và 1-8
-        for i in range(8):
-            color = COLOR_LIGHT if i % 2 != 0 else COLOR_DARK
-            arcade.draw_text(str(8 - i), 5, (7 - i) * TILE + TILE - 18, color, 11, bold=True)
-            color = COLOR_LIGHT if i % 2 == 0 else COLOR_DARK
-            arcade.draw_text(chr(97 + i), i * TILE + TILE - 14, 4, color, 11, bold=True)
-
         # 3. Vẽ tất cả quân cờ
         self.piece_sprite_list.draw()
 
+        # 3.5 VẼ TỌA ĐỘ A-H VÀ 1-8 (Căn lề tuyệt đối vào sát góc ô)
+        for i in range(8):
+            # Số 1-8
+            color = COLOR_LIGHT if i % 2 != 0 else COLOR_DARK
+            arcade.draw_text(
+                text=str(8 - i),
+                x=4,
+                y=(7 - i) * TILE + TILE - 4,
+                color=color,
+                font_size=11,
+                bold=True,
+                anchor_x="left",
+                anchor_y="top"
+            )
+
+            # Chữ a-h
+            color = COLOR_LIGHT if i % 2 == 0 else COLOR_DARK
+            arcade.draw_text(
+                text=chr(97 + i),
+                x=i * TILE + TILE - 4,
+                y=4,
+                color=color,
+                font_size=11,
+                bold=True,
+                anchor_x="right",
+                anchor_y="bottom"
+            )
+
         # 4. Vẽ Giao diện Panel bên phải (UI)
-        # Nền chính
         arcade.draw_lrbt_rectangle_filled(BOARD_WIDTH, WIDTH, 0, HEIGHT, (33, 35, 41))
-        # Viền chia tách
         arcade.draw_line(BOARD_WIDTH, 0, BOARD_WIDTH, HEIGHT, (20, 22, 26), 4)
 
-        # Khung Header Title
         header_y = HEIGHT - 80
         arcade.draw_lrbt_rectangle_filled(BOARD_WIDTH + 15, WIDTH - 15, header_y, HEIGHT - 15, (45, 48, 56))
         arcade.draw_lrbt_rectangle_outline(BOARD_WIDTH + 15, WIDTH - 15, header_y, HEIGHT - 15, (65, 68, 76), 2)
         arcade.draw_text("CHESS AI", BOARD_WIDTH + UI_WIDTH // 2, HEIGHT - 55,
                          arcade.color.GOLD, 24, font_name="calibri", anchor_x="center", bold=True)
 
-        # Hộp trạng thái Turn
         status_y = HEIGHT - 140
         arcade.draw_lrbt_rectangle_filled(BOARD_WIDTH + 15, WIDTH - 15, status_y, status_y + 40, (25, 27, 32))
 
         if self.is_ai_thinking:
-            # Tính toán độ mờ nhấp nháy cho chữ (từ 100 đến 255)
             alpha = int(175 + 80 * math.sin(self.time_elapsed * 5))
             arcade.draw_text("AI is thinking...", BOARD_WIDTH + UI_WIDTH // 2, status_y + 12,
                              (235, 151, 78, alpha), 14, font_name="calibri", anchor_x="center", italic=True, bold=True)
@@ -266,7 +281,7 @@ class ChessGame(arcade.Window):
 
         self.manager.draw()
 
-        # 5. Thông báo Overlay (Chiếu / Kết thúc)
+        # 5. Thông báo Overlay
         if is_in_check(self.board, "w", self.move_log) and not self.game_over:
             arcade.draw_text("CHECK!", BOARD_WIDTH // 2 + 2, BOARD_WIDTH // 2 - 2, (0, 0, 0, 150), 50,
                              anchor_x="center", anchor_y="center", bold=True)
